@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { GitHubClient } from "./lib/github";
 import { analyzePRDiff, generatePRComment } from "./lib/openai";
+import { openai } from "./lib/openai";
 import { insertPullRequestSchema, insertCodeAnalysisSchema, insertSettingsSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { checkDatabaseHealth } from "./db";
