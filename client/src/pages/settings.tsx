@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,29 +17,37 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function SettingsPage() {
   const { toast } = useToast();
 
-  const { data: settings } = useQuery<Settings>({
+  const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ["/api/settings"]
   });
 
   const form = useForm({
     resolver: zodResolver(insertSettingsSchema),
-    defaultValues: settings || {
+    defaultValues: {
       githubToken: "",
       webhookSecret: "",
       repositories: []
     }
   });
 
+  // Update form when settings are loaded
+  useEffect(() => {
+    if (settings) {
+      form.reset(settings);
+    }
+  }, [settings, form]);
+
   const mutation = useMutation({
     mutationFn: async (data: Settings) => {
       await apiRequest("POST", "/api/settings", data);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       toast({
         title: "Settings saved",
         description: "Your changes have been saved successfully."
@@ -53,6 +61,10 @@ export default function SettingsPage() {
       });
     }
   });
+
+  if (isLoading) {
+    return <div>Loading settings...</div>;
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
@@ -108,8 +120,8 @@ export default function SettingsPage() {
                 <FormControl>
                   <Textarea
                     {...field}
-                    value={field.value?.join("\n")}
-                    onChange={e => field.onChange(e.target.value.split("\n"))}
+                    value={field.value?.join("\n") || ""}
+                    onChange={e => field.onChange(e.target.value.split("\n").filter(Boolean))}
                     placeholder="owner/repo
 owner/another-repo"
                   />
