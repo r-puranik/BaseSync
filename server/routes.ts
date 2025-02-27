@@ -5,14 +5,30 @@ import { GitHubClient } from "./lib/github";
 import { analyzePRDiff, generatePRComment } from "./lib/openai";
 import { insertPullRequestSchema, insertCodeAnalysisSchema, insertSettingsSchema } from "@shared/schema";
 import { ZodError } from "zod";
+import { checkDatabaseHealth } from "./db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
+  // Health check endpoint
+  app.get("/api/health", async (req, res) => {
+    const dbHealthy = await checkDatabaseHealth();
+    if (!dbHealthy) {
+      res.status(503).json({ status: "error", message: "Database connection failed" });
+      return;
+    }
+    res.json({ status: "healthy", database: "connected" });
+  });
+
   // Settings endpoints
   app.get("/api/settings", async (req, res) => {
-    const settings = await storage.getSettings();
-    res.json(settings || {});
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings || {});
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
   });
 
   app.post("/api/settings", async (req, res) => {
@@ -24,7 +40,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (e instanceof ZodError) {
         res.status(400).json({ error: e.errors });
       } else {
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error creating settings:", e);
+        res.status(500).json({ error: "Failed to create settings" });
       }
     }
   });
@@ -72,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const event = req.headers["x-github-event"];
     if (event === "pull_request") {
       const { pull_request: pr, repository } = req.body;
-      
+
       try {
         // Create PR record
         const pullRequest = await storage.createPullRequest({
@@ -94,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
         const analysis = await analyzePRDiff(diff);
-        
+
         // Store analysis
         const codeAnalysis = await storage.createCodeAnalysis({
           prId: pullRequest.id,
