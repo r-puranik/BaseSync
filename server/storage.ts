@@ -1,8 +1,13 @@
 import { 
   PullRequest, InsertPullRequest,
   CodeAnalysis, InsertCodeAnalysis,
-  Settings, InsertSettings
+  Settings, InsertSettings,
+  pullRequests,
+  codeAnalysis,
+  settings
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Pull Requests
@@ -22,74 +27,92 @@ export interface IStorage {
   updateSettings(settings: Partial<Settings>): Promise<Settings>;
 }
 
-export class MemStorage implements IStorage {
-  private prs: Map<number, PullRequest>;
-  private analyses: Map<number, CodeAnalysis>;
-  private settings: Settings | undefined;
-  private currentPrId: number;
-  private currentAnalysisId: number;
-
-  constructor() {
-    this.prs = new Map();
-    this.analyses = new Map();
-    this.currentPrId = 1;
-    this.currentAnalysisId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getPullRequest(id: number): Promise<PullRequest | undefined> {
-    return this.prs.get(id);
+    const [pr] = await db
+      .select()
+      .from(pullRequests)
+      .where(eq(pullRequests.id, id));
+    return pr;
   }
 
   async getPullRequests(): Promise<PullRequest[]> {
-    return Array.from(this.prs.values());
+    return db.select().from(pullRequests);
   }
 
   async createPullRequest(pr: InsertPullRequest): Promise<PullRequest> {
-    const id = this.currentPrId++;
-    const newPr = { ...pr, id };
-    this.prs.set(id, newPr);
-    return newPr;
+    const [created] = await db
+      .insert(pullRequests)
+      .values(pr)
+      .returning();
+    return created;
   }
 
   async updatePullRequest(id: number, pr: Partial<PullRequest>): Promise<PullRequest> {
-    const existing = await this.getPullRequest(id);
-    if (!existing) throw new Error('PR not found');
-    
-    const updated = { ...existing, ...pr };
-    this.prs.set(id, updated);
+    const [updated] = await db
+      .update(pullRequests)
+      .set(pr)
+      .where(eq(pullRequests.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error('PR not found');
+    }
+
     return updated;
   }
 
   async getCodeAnalysis(id: number): Promise<CodeAnalysis | undefined> {
-    return this.analyses.get(id);
+    const [analysis] = await db
+      .select()
+      .from(codeAnalysis)
+      .where(eq(codeAnalysis.id, id));
+    return analysis;
   }
 
   async getAnalysisForPR(prId: number): Promise<CodeAnalysis | undefined> {
-    return Array.from(this.analyses.values()).find(a => a.prId === prId);
+    const [analysis] = await db
+      .select()
+      .from(codeAnalysis)
+      .where(eq(codeAnalysis.prId, prId));
+    return analysis;
   }
 
   async createCodeAnalysis(analysis: InsertCodeAnalysis): Promise<CodeAnalysis> {
-    const id = this.currentAnalysisId++;
-    const newAnalysis = { ...analysis, id };
-    this.analyses.set(id, newAnalysis);
-    return newAnalysis;
+    const [created] = await db
+      .insert(codeAnalysis)
+      .values([analysis]) 
+      .returning();
+    return created;
   }
 
   async getSettings(): Promise<Settings | undefined> {
-    return this.settings;
+    const [setting] = await db.select().from(settings);
+    return setting;
   }
 
-  async createSettings(settings: InsertSettings): Promise<Settings> {
-    const newSettings = { ...settings, id: 1 };
-    this.settings = newSettings;
-    return newSettings;
+  async createSettings(setting: InsertSettings): Promise<Settings> {
+    const [created] = await db
+      .insert(settings)
+      .values(setting)
+      .returning();
+    return created;
   }
 
   async updateSettings(update: Partial<Settings>): Promise<Settings> {
-    if (!this.settings) throw new Error('Settings not initialized');
-    this.settings = { ...this.settings, ...update };
-    return this.settings;
+    const current = await this.getSettings();
+    if (!current) {
+      throw new Error('Settings not initialized');
+    }
+
+    const [updated] = await db
+      .update(settings)
+      .set(update)
+      .where(eq(settings.id, current.id))
+      .returning();
+
+    return updated;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
