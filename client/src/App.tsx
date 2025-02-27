@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Layout } from "@/components/layout";
 import Dashboard from "@/pages/dashboard";
 import SettingsPage from "@/pages/settings";
+import ChatPage from "@/pages/chat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -13,6 +14,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/chat" component={ChatPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

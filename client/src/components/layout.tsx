@@ -1,13 +1,18 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { SiGithub } from "react-icons/si";
-import { LayoutDashboard, Settings } from "lucide-react";
+import { LayoutDashboard, Settings, MessageCircle } from "lucide-react";
 
 const NAV_ITEMS = [
   {
     title: "Dashboard",
     href: "/",
     icon: LayoutDashboard
+  },
+  {
+    title: "Chat",
+    href: "/chat",
+    icon: MessageCircle
   },
   {
     title: "Settings",
@@ -27,7 +32,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <SiGithub className="h-6 w-6" />
             <span className="font-semibold">BaseSync</span>
           </div>
-          
+
           <div className="flex items-center space-x-6 ml-8">
             {NAV_ITEMS.map(item => (
               <Link key={item.href} href={item.href}>
