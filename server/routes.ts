@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { GitHubClient } from "./lib/github";
 import { analyzePRDiff, generatePRComment } from "./lib/openai";
 import { openai } from "./lib/openai";
+import * as aiService from "./lib/ai-service";
 import { insertPullRequestSchema, insertCodeAnalysisSchema, insertSettingsSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { checkDatabaseHealth } from "./db";
@@ -154,25 +155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "You are a helpful code assistant. Provide clear, concise, and accurate responses about code, development practices, and technical concepts. When appropriate, include code examples."
-          },
-          {
-            role: "user",
-            content: message
-          }
-        ]
-      });
-
-      const reply = response.choices[0].message.content;
-      if (!reply) {
-        throw new Error("No response from OpenAI");
-      }
-
+      // Use the AI service which handles fallback
+      const reply = await aiService.getChatResponse(message);
       res.json({ response: reply });
     } catch (error) {
       console.error("Error in chat endpoint:", error);

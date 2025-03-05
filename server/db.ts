@@ -5,15 +5,18 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-if (!process.env.DATABASE_URL) {
+// Use provided Neon connection string or fall back to environment variable
+const connectionString = "postgresql://neondb_owner:npg_FewYiln8NdA7@ep-crimson-thunder-a5f34fur-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require" || process.env.DATABASE_URL;
+
+if (!connectionString) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "Database connection string must be available",
   );
 }
 
 // Configure pool with reasonable defaults
 export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
   connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
